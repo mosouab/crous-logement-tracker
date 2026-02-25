@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CROUS Notifier</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: system-ui, sans-serif; background: #f4f6fb; color: #1a1a2e; min-height: 100vh; }
+
+    header {
+      background: #003189;
+      color: #fff;
+      padding: 1rem 2rem;
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+    }
+    header h1 { font-size: 1.25rem; font-weight: 700; }
+    header span { font-size: 0.85rem; opacity: 0.7; }
+
+    .container { max-width: 1100px; margin: 0 auto; padding: 2rem 1.5rem; display: grid; gap: 1.5rem; }
+
+    /* Cards */
+    .card {
+      background: #fff;
+      border-radius: 12px;
+      padding: 1.5rem;
+      box-shadow: 0 2px 8px rgba(0,0,0,.07);
+    }
+    .card h2 { font-size: 1rem; font-weight: 600; color: #555; text-transform: uppercase; letter-spacing: .05em; margin-bottom: 1rem; }
+
+    /* Status bar */
+    .status-bar { display: flex; flex-wrap: wrap; gap: 1rem; align-items: center; }
+    .badge {
+      display: inline-flex; align-items: center; gap: .4rem;
+      padding: .35rem .8rem; border-radius: 999px; font-size: .85rem; font-weight: 600;
+    }
+    .badge.running  { background: #d1fae5; color: #065f46; }
+    .badge.stopped  { background: #fee2e2; color: #991b1b; }
+    .dot { width: 8px; height: 8px; border-radius: 50%; background: currentColor; }
+
+    .stats { display: flex; flex-wrap: wrap; gap: 1.5rem; margin-left: auto; }
+    .stat { text-align: center; }
+    .stat .value { font-size: 1.6rem; font-weight: 700; color: #003189; }
+    .stat .label { font-size: .75rem; color: #888; }
+
+    /* Buttons */
+    .actions { display: flex; flex-wrap: wrap; gap: .75rem; margin-top: 1rem; }
+    .btn {
+      padding: .5rem 1.2rem; border: none; border-radius: 8px;
+      font-size: .9rem; font-weight: 600; cursor: pointer; transition: opacity .15s;
+    }
+    .btn:hover { opacity: .85; }
+    .btn-green  { background: #059669; color: #fff; }
+    .btn-red    { background: #dc2626; color: #fff; }
+    .btn-blue   { background: #003189; color: #fff; }
+    .btn-gray   { background: #e5e7eb; color: #374151; }
+    .btn:disabled { opacity: .4; cursor: not-allowed; }
+
+    /* Flash messages */
+    .flash { padding: .75rem 1rem; border-radius: 8px; margin-bottom: 1rem; font-size: .9rem; }
+    .flash.success { background: #d1fae5; color: #065f46; }
+    .flash.warning { background: #fef3c7; color: #92400e; }
+    .flash.error   { background: #fee2e2; color: #991b1b; }
+
+    /* Log */
+    .log-box {
+      background: #0f172a; color: #94a3b8;
+      border-radius: 8px; padding: 1rem;
+      font-family: monospace; font-size: .82rem;
+      height: 260px; overflow-y: auto;
+      display: flex; flex-direction: column-reverse;
+    }
+    .log-box p { padding: .1rem 0; border-bottom: 1px solid rgba(255,255,255,.04); }
+    .log-box p:last-child { border: none; }
+
+    /* Settings form */
+    .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+    @media (max-width: 640px) { .form-grid { grid-template-columns: 1fr; } }
+    .form-group { display: flex; flex-direction: column; gap: .35rem; }
+    .form-group label { font-size: .85rem; font-weight: 600; color: #444; }
+    .form-group input, .form-group select {
+      padding: .5rem .75rem; border: 1.5px solid #d1d5db; border-radius: 8px;
+      font-size: .9rem; background: #f9fafb;
+    }
+    .form-group input:focus, .form-group select:focus {
+      outline: none; border-color: #003189; background: #fff;
+    }
+    .form-group small { color: #9ca3af; font-size: .78rem; }
+    .form-full { grid-column: 1 / -1; }
+
+    .notice {
+      background: #eff6ff; border-left: 4px solid #3b82f6;
+      padding: .75rem 1rem; border-radius: 0 8px 8px 0;
+      font-size: .85rem; color: #1e40af; margin-top: .5rem;
+    }
+
+    /* Two-column layout for main content */
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; }
+    @media (max-width: 800px) { .grid-2 { grid-template-columns: 1fr; } }
+
+    /* Listings grid */
+    .listings-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+      gap: 1rem;
+    }
+    .listing-card {
+      border: 1.5px solid #e5e7eb; border-radius: 10px;
+      overflow: hidden; text-decoration: none; color: inherit;
+      transition: box-shadow .15s, transform .15s;
+      display: flex; flex-direction: column;
+    }
+    .listing-card:hover { box-shadow: 0 4px 16px rgba(0,49,137,.12); transform: translateY(-2px); }
+    .listing-img { height: 140px; overflow: hidden; background: #f1f5f9; }
+    .listing-img img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .no-img { height: 100%; display: flex; align-items: center; justify-content: center; color: #aaa; font-size: .85rem; }
+    .listing-body { padding: .75rem; display: flex; flex-direction: column; gap: .2rem; flex: 1; }
+    .listing-name { font-weight: 700; font-size: .9rem; color: #1a1a2e; }
+    .listing-addr { font-size: .78rem; color: #6b7280; }
+    .listing-price { font-size: .85rem; font-weight: 600; color: #003189; margin-top: auto; padding-top: .4rem; }
+    .listing-date { font-size: .72rem; color: #9ca3af; }
+  </style>
+</head>
+<body>
+
+<header>
+  <div>
+    <h1>🏠 CROUS Notifier</h1>
+    <span>trouverunlogement.lescrous.fr monitor</span>
+  </div>
+</header>
+
+<div class="container">
+
+  {% for cat, msg in get_flashed_messages(with_categories=true) %}
+    <div class="flash {{ cat }}">{{ msg }}</div>
+  {% endfor %}
+
+  <!-- Status + Controls -->
+  <div class="card">
+    <h2>Status</h2>
+    <div class="status-bar">
+      {% if state.running %}
+        <span class="badge running"><span class="dot"></span> Running</span>
+      {% else %}
+        <span class="badge stopped"><span class="dot"></span> Stopped</span>
+      {% endif %}
+
+      <div class="stats">
+        <div class="stat">
+          <div class="value">{{ known_count }}</div>
+          <div class="label">Listings tracked</div>
+        </div>
+        <div class="stat">
+          <div class="value">{{ state.new_since_start }}</div>
+          <div class="label">New this session</div>
+        </div>
+        <div class="stat">
+          <div class="value">{{ state.last_check.strftime('%H:%M') if state.last_check else '—' }}</div>
+          <div class="label">Last check</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="actions">
+      <form method="post" action="/start">
+        <button class="btn btn-green" {{ 'disabled' if state.running }}>▶ Start</button>
+      </form>
+      <form method="post" action="/stop">
+        <button class="btn btn-red" {{ 'disabled' if not state.running }}>⏹ Stop</button>
+      </form>
+      <form method="post" action="/check-now">
+        <button class="btn btn-blue">🔍 Check now</button>
+      </form>
+    </div>
+  </div>
+
+  <div class="grid-2">
+
+    <!-- Activity Log -->
+    <div class="card">
+      <h2>Activity log</h2>
+      <div class="log-box" id="logBox">
+        {% for line in logs %}
+          <p>{{ line }}</p>
+        {% else %}
+          <p style="opacity:.4">No activity yet…</p>
+        {% endfor %}
+      </div>
+    </div>
+
+    <!-- Settings -->
+    <div class="card">
+      <h2>Settings</h2>
+      <form method="post" action="/settings">
+        <div class="form-grid">
+
+          <div class="form-group">
+            <label>Telegram Bot Token</label>
+            <input type="password" name="TELEGRAM_BOT_TOKEN"
+                   value="{{ env.get('TELEGRAM_BOT_TOKEN','') }}" autocomplete="off">
+          </div>
+
+          <div class="form-group">
+            <label>Telegram Chat ID</label>
+            <input type="text" name="TELEGRAM_CHAT_ID"
+                   value="{{ env.get('TELEGRAM_CHAT_ID','') }}">
+          </div>
+
+          <div class="form-group form-full">
+            <label>Locations to monitor</label>
+            <input type="text" name="LOCATIONS"
+                   value="{{ env.get('LOCATIONS','') }}"
+                   placeholder="Evry,Paris,Orsay,Gif-sur-Yvette">
+            <small>Comma-separated city names, matched against listing addresses</small>
+          </div>
+
+          <div class="form-group">
+            <label>Check interval (minutes)</label>
+            <input type="number" name="CHECK_INTERVAL_MINUTES" min="1"
+                   value="{{ env.get('CHECK_INTERVAL_MINUTES','10') }}">
+          </div>
+
+          <div class="form-group">
+            <label>Max price (€, optional)</label>
+            <input type="number" name="MAX_PRICE" min="0"
+                   value="{{ env.get('MAX_PRICE','') }}" placeholder="No limit">
+          </div>
+
+          <div class="form-group form-full">
+            <label>Authentication mode</label>
+            <select name="USE_AUTH">
+              <option value="false" {{ 'selected' if env.get('USE_AUTH','false') == 'false' }}>
+                Anonymous — public listings only
+              </option>
+              <option value="true" {{ 'selected' if env.get('USE_AUTH','false') == 'true' }}>
+                Logged in — full DSE-eligible listings
+              </option>
+            </select>
+          </div>
+
+        </div>
+
+        {% if env.get('USE_AUTH','false') == 'true' %}
+        <div class="notice">
+          🔐 Logged-in mode active. If cookies expire, run
+          <code>python main.py --login</code> to re-authenticate.
+        </div>
+        {% endif %}
+
+        <div class="actions">
+          <button type="submit" class="btn btn-blue">💾 Save settings</button>
+        </div>
+      </form>
+    </div>
+
+  </div>
+
+  <!-- Tracked Listings -->
+  <div class="card">
+    <h2 style="display:flex;align-items:center;justify-content:space-between;">
+      <span>Tracked listings</span>
+      <button class="btn btn-gray" id="toggleBtn" onclick="toggleListings()">Show listings</button>
+    </h2>
+    <div id="listingsPanel" style="display:none;margin-top:1.25rem;">
+      <div id="listingsGrid" class="listings-grid">
+        <p style="color:#888;padding:1rem;">Loading…</p>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+  // Auto-refresh logs every 10 seconds
+  setInterval(() => {
+    fetch('/logs')
+      .then(r => r.json())
+      .then(data => {
+        const box = document.getElementById('logBox');
+        if (data.logs.length === 0) return;
+        box.innerHTML = data.logs.map(l => `<p>${l}</p>`).join('');
+      });
+  }, 10000);
+
+  let listingsLoaded = false;
+
+  function toggleListings() {
+    const panel = document.getElementById('listingsPanel');
+    const btn   = document.getElementById('toggleBtn');
+    const open  = panel.style.display === 'none';
+    panel.style.display = open ? 'block' : 'none';
+    btn.textContent = open ? 'Hide listings' : 'Show listings';
+    if (open && !listingsLoaded) loadListings();
+  }
+
+  function loadListings() {
+    fetch('/listings')
+      .then(r => r.json())
+      .then(data => {
+        listingsLoaded = true;
+        const grid = document.getElementById('listingsGrid');
+        if (!data.listings.length) {
+          grid.innerHTML = '<p style="color:#888;padding:1rem;">No tracked listings yet. Run a check first.</p>';
+          return;
+        }
+        grid.innerHTML = data.listings.map(a => `
+          <a class="listing-card" href="${a.url || '#'}" target="_blank" rel="noreferrer">
+            <div class="listing-img">
+              ${a.image_url
+                ? `<img src="${a.image_url}" alt="${a.name || ''}" loading="lazy" onerror="this.parentElement.innerHTML='<div class=no-img>No image</div>'">`
+                : '<div class="no-img">No image</div>'}
+            </div>
+            <div class="listing-body">
+              <div class="listing-name">${a.name || 'Unknown'}</div>
+              <div class="listing-addr">${a.address || ''}</div>
+              <div class="listing-price">${a.price || ''}</div>
+              ${a.first_seen ? `<div class="listing-date">Tracked since ${a.first_seen.slice(0,10)}</div>` : ''}
+            </div>
+          </a>`).join('');
+      });
+  }
+</script>
+
+</body>
+</html>
