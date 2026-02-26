@@ -295,10 +295,22 @@
 
         {% if env.get('USE_AUTH','false') == 'true' %}
         <div class="notice">
-          🔐 Logged-in mode active. If cookies expire, run
-          <code>python main.py --login</code> to re-authenticate.
+          🔐 Logged-in mode active. Upload a fresh <code>cookies.json</code> below if they expire.
         </div>
         {% endif %}
+
+        <div style="margin-top:1rem;padding:1rem;background:#1e293b;border-radius:8px;border:1px solid #334155">
+          <div style="font-size:.85rem;color:#94a3b8;margin-bottom:.6rem;">
+            🍪 <b style="color:#e2e8f0">Refresh CROUS cookies</b>
+            — export with <a href="https://chrome.google.com/webstore/detail/cookie-editor/hlkenndednhfkekhgcdicdfddnkalmdm" target="_blank" style="color:#60a5fa">Cookie Editor</a> on <code>trouverunlogement.lescrous.fr</code> after logging in, then upload the JSON file.
+          </div>
+          <form method="post" action="/upload-cookies" enctype="multipart/form-data" style="display:flex;gap:.5rem;align-items:center;flex-wrap:wrap">
+            <input type="file" name="cookies_file" accept=".json,application/json"
+              style="flex:1;min-width:200px;padding:.4rem .6rem;background:#0f172a;color:#e2e8f0;border:1px solid #475569;border-radius:6px;font-size:.85rem">
+            <button type="submit" class="btn btn-blue" style="white-space:nowrap">⬆️ Upload cookies</button>
+          </form>
+        </div>
+
 
         <div class="actions">
           <button type="submit" class="btn btn-blue">💾 Save settings</button>
