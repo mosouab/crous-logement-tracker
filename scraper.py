@@ -160,7 +160,7 @@ def _extract_city(address: str) -> str | None:
     return m.group(1).strip() if m else None
 
 
-def get_all_cities() -> list[str]:
+def get_all_cities(polite_delay: bool = True) -> list[str]:
     """Fetch all listing pages and return a sorted list of unique city names."""
     session = _build_session()
     cities: set[str] = set()
@@ -178,7 +178,8 @@ def get_all_cities() -> list[str]:
                 cities.add(city)
 
     for page in range(2, total_pages + 1):
-        time.sleep(random.uniform(0.3, 1.0))
+        if polite_delay:
+            time.sleep(random.uniform(0.3, 1.0))
         resp = session.get(SEARCH_URL, params={"page": page}, timeout=30)
         resp.raise_for_status()
         soup = BeautifulSoup(resp.content, "html.parser", from_encoding="utf-8")

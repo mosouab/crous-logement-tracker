@@ -243,7 +243,7 @@ def cities_json():
         # No tracked listings yet — do a live scrape
         try:
             from scraper import get_all_cities
-            cities = get_all_cities()
+            cities = get_all_cities(polite_delay=False)
         except Exception as e:
             return {"cities": [], "error": str(e)}
 
@@ -251,8 +251,14 @@ def cities_json():
 
 
 # ── .env helpers ─────────────────────────────────────────────────────────────
+_ENV_KEYS = (
+    "TELEGRAM_BOT_TOKEN", "TELEGRAM_CHAT_ID", "LOCATIONS",
+    "CHECK_INTERVAL_MINUTES", "MAX_PRICE", "USE_AUTH",
+)
+
 def _read_env() -> dict[str, str]:
     env: dict[str, str] = {}
+    # Read .env file first
     try:
         with open(".env", encoding="utf-8") as f:
             for line in f:
@@ -262,6 +268,10 @@ def _read_env() -> dict[str, str]:
                     env[k.strip()] = v.strip()
     except FileNotFoundError:
         pass
+    # os.environ takes priority (Heroku config vars override .env)
+    for k in _ENV_KEYS:
+        if k in os.environ:
+            env[k] = os.environ[k]
     return env
 
 
@@ -292,6 +302,32 @@ def _write_env(values: dict[str, str]) -> None:
 
     with open(".env", "w", encoding="utf-8") as f:
         f.write("\n".join(lines) + "\n")
+
+    # On Heroku, also persist to config vars (ephemeral filesystem loses .env)
+    if os.getenv("DYNO"):
+        _push_heroku_config(values)
+
+
+def _push_heroku_config(values: dict[str, str]) -> None:
+    import json as _json
+    import requests as _req
+    api_key = os.getenv("HEROKU_API_KEY") or os.getenv("HRKU_API_KEY")
+    app_name = os.getenv("HEROKU_APP_NAME") or os.getenv("HRKU_APP_NAME")
+    if not api_key or not app_name:
+        return
+    try:
+        _req.patch(
+            f"https://api.heroku.com/apps/{app_name}/config-vars",
+            headers={
+                "Authorization": f"Bearer {api_key}",
+                "Accept": "application/vnd.heroku+json; version=3",
+                "Content-Type": "application/json",
+            },
+            data=_json.dumps(values),
+            timeout=10,
+        ).raise_for_status()
+    except Exception as e:
+        print(f"⚠️  Heroku config push failed: {e}")
 
 
 # Auto-start when imported by gunicorn on Heroku

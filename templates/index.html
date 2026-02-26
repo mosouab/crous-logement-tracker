@@ -244,7 +244,7 @@
             <label>Locations to monitor</label>
             <div class="city-selector">
               <div class="city-search-bar">
-                <input type="text" id="citySearch" placeholder="🔍 Search cities…" oninput="filterCities()" autocomplete="off">
+                <input type="text" id="citySearch" placeholder="🔍 Search or type city + Enter to add…" oninput="filterCities()" onkeydown="handleCityKey(event)" autocomplete="off">
                 <span id="cityCount" class="city-count"></span>
                 <button type="button" class="btn btn-gray btn-sm" onclick="loadCities()" id="refreshCitiesBtn">↻ Refresh</button>
               </div>
@@ -361,6 +361,31 @@
     else                          { _selectedCities.add(key);    el.classList.add('selected'); }
     document.getElementById('locationsHidden').value = [..._selectedCities].join(',');
     updateCount();
+  }
+
+  function handleCityKey(e) {
+    if (e.key !== 'Enter') return;
+    e.preventDefault();
+    const val = document.getElementById('citySearch').value.trim().toUpperCase();
+    if (!val) return;
+    // If chip already exists, toggle it; otherwise create a new one
+    const existing = [...document.querySelectorAll('.city-chip')]
+      .find(c => c.textContent.toUpperCase() === val);
+    if (existing) {
+      toggleCity(existing, existing.textContent);
+    } else {
+      const grid = document.getElementById('cityGrid');
+      const chip = document.createElement('span');
+      chip.className = 'city-chip selected';
+      chip.textContent = val;
+      chip.onclick = () => toggleCity(chip, val);
+      grid.appendChild(chip);
+      _selectedCities.add(val);
+      document.getElementById('locationsHidden').value = [..._selectedCities].join(',');
+      updateCount();
+    }
+    document.getElementById('citySearch').value = '';
+    filterCities();
   }
 
   function filterCities() {
