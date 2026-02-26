@@ -1,80 +1,80 @@
 # CROUS Notifier
 
-Watches [trouverunlogement.lescrous.fr](https://trouverunlogement.lescrous.fr) for new student housing listings and sends instant Telegram alerts. Deployable to Heroku.
+Surveille [trouverunlogement.lescrous.fr](https://trouverunlogement.lescrous.fr) et envoie une alerte Telegram dès qu'un nouveau logement étudiant est disponible. Déployable sur Heroku.
 
-## Features
+## Fonctionnalités
 
-- Polls CROUS for new listings on a configurable interval
-- Sends Telegram notifications with name, address, price, and link
-- Filters by city and optional max rent
-- Web UI to view tracked listings, live logs, and settings
-- Telegram bot: send any message to get system status, send `Logs` to get full log history
-- Supports anonymous scraping or logged-in mode (via saved cookies)
+- Vérifie les nouvelles annonces CROUS à intervalle configurable
+- Envoie des notifications Telegram avec nom, adresse, loyer et lien
+- Filtrage par ville et loyer maximum optionnel
+- Interface web pour consulter les annonces suivies, les logs en direct et les paramètres
+- Bot Telegram : envoyer n'importe quel message affiche l'état du système, envoyer `Logs` affiche tout l'historique
+- Compatible mode anonyme ou mode connecté (via cookies sauvegardés)
 
-## Setup
+## Installation
 
-### 1. Create a Telegram bot
+### 1. Créer un bot Telegram
 
-1. Message [@BotFather](https://t.me/BotFather) → `/newbot` → copy the **token**
-2. Message [@userinfobot](https://t.me/userinfobot) → copy your **chat ID**
+1. Écrire à [@BotFather](https://t.me/BotFather) → `/newbot` → copier le **token**
+2. Écrire à [@userinfobot](https://t.me/userinfobot) → copier votre **chat ID**
 
-### 2. Configure environment
+### 2. Configurer l'environnement
 
 ```bash
 cp .env.example .env
 ```
 
-Edit `.env`:
+Éditer `.env` :
 
 ```env
-TELEGRAM_BOT_TOKEN=your_token
-TELEGRAM_CHAT_ID=your_chat_id
-LOCATIONS=Paris,Evry          # cities to monitor (comma-separated)
+TELEGRAM_BOT_TOKEN=votre_token
+TELEGRAM_CHAT_ID=votre_chat_id
+LOCATIONS=Paris,Evry          # villes à surveiller (séparées par des virgules)
 CHECK_INTERVAL_MINUTES=10
-MAX_PRICE=                    # optional rent cap in €
+MAX_PRICE=                    # loyer maximum en € (optionnel)
 USE_AUTH=false
-WEB_PASSWORD=choose_a_password
+WEB_PASSWORD=choisir_un_mot_de_passe
 ```
 
-### 3. Run locally
+### 3. Lancer en local
 
 ```bash
 pip install -r requirements.txt
-python main.py --web           # starts web UI + notifier
+python main.py --web           # démarre l'interface web + le notifier
 ```
 
-Web UI is available at `http://localhost:5000`.
+L'interface web est disponible sur `http://localhost:5000`.
 
-## Logged-in mode
+## Mode connecté
 
-Logged-in sessions may see more listings. To enable:
+Les sessions connectées peuvent afficher plus d'annonces. Pour l'activer :
 
-1. Install Playwright: `pip install playwright && playwright install chromium`
-2. Run `python main.py --login` — a browser window opens, log in to CROUS, then close it
-3. Cookies are saved to `cookies.json` and auto-pushed to Heroku (if `HEROKU_API_KEY` is set)
-4. Set `USE_AUTH=true` in settings or `.env`
+1. Installer Playwright : `pip install playwright && playwright install chromium`
+2. Lancer `python main.py --login` — une fenêtre navigateur s'ouvre, se connecter au CROUS puis la fermer
+3. Les cookies sont sauvegardés dans `cookies.json` et envoyés automatiquement sur Heroku (si `HEROKU_API_KEY` est défini)
+4. Activer `USE_AUTH=true` dans les paramètres ou dans `.env`
 
-> Cookies expire periodically. Re-run `--login` when you see scrape errors.
+> Les cookies expirent régulièrement. Relancer `--login` en cas d'erreur de scraping.
 
-## Telegram bot commands
+## Commandes du bot Telegram
 
-| Message | Response |
-|---------|----------|
-| Anything | System status (uptime, last check, listings, auth mode, recent logs) |
-| `Logs` | Full log history (last 100 lines) |
+| Message | Réponse |
+|---------|---------|
+| N'importe quoi | État du système (dernière vérification, annonces suivies, mode auth, logs récents) |
+| `Logs` | Historique complet des logs (100 dernières lignes) |
 
-## Deploy to Heroku
+## Déploiement sur Heroku
 
-### Prerequisites
+### Prérequis
 
 - [Heroku CLI](https://devcenter.heroku.com/articles/heroku-cli)
-- Docker installed locally
+- Docker installé en local
 
-### Steps
+### Étapes
 
 ```bash
-heroku create your-app-name
-heroku stack:set container --app your-app-name
+heroku create nom-de-votre-app
+heroku stack:set container --app nom-de-votre-app
 
 heroku config:set \
   TELEGRAM_BOT_TOKEN=... \
@@ -83,44 +83,44 @@ heroku config:set \
   CHECK_INTERVAL_MINUTES=10 \
   WEB_PASSWORD=... \
   USE_AUTH=false \
-  --app your-app-name
+  --app nom-de-votre-app
 
 git push heroku master
 ```
 
-Add `HEROKU_API_KEY` and `HEROKU_APP_NAME` to your local `.env` so `--login` can push cookies to Heroku automatically.
+Ajouter `HEROKU_API_KEY` et `HEROKU_APP_NAME` dans le `.env` local pour que `--login` puisse pousser les cookies sur Heroku automatiquement.
 
-### Refreshing cookies on Heroku
+### Renouveler les cookies sur Heroku
 
 ```bash
-python main.py --login   # logs in locally and auto-pushes cookies to Heroku
-heroku ps:restart --app your-app-name
+python main.py --login   # se connecte en local et pousse les cookies sur Heroku
+heroku ps:restart --app nom-de-votre-app
 ```
 
-## Project structure
+## Structure du projet
 
 ```
-main.py          – CLI entrypoint (--web, --login, --run)
-web.py           – Flask app, routes, background polling loop
-scraper.py       – CROUS website scraper
-notifier.py      – Compares listings, sends Telegram alerts
-state.py         – Persists seen listings (state.json)
-auth.py          – Cookie login via Playwright
-telegram_bot.py  – send_message() + status bot
-config.py        – All configuration via env vars
-cities.txt       – 200+ French cities for the city selector
+main.py          – Point d'entrée CLI (--web, --login, --run)
+web.py           – Application Flask, routes, boucle de polling
+scraper.py       – Scraper du site CROUS
+notifier.py      – Compare les annonces et envoie les alertes Telegram
+state.py         – Persistance des annonces vues (state.json)
+auth.py          – Connexion par cookies via Playwright
+telegram_bot.py  – send_message() + bot de statut
+config.py        – Configuration via variables d'environnement
+cities.txt       – Plus de 200 villes françaises pour le sélecteur
 ```
 
-## Environment variables
+## Variables d'environnement
 
-| Variable | Required | Default | Description |
-|----------|----------|---------|-------------|
-| `TELEGRAM_BOT_TOKEN` | ✅ | — | Bot token from @BotFather |
-| `TELEGRAM_CHAT_ID` | ✅ | — | Your Telegram user ID |
-| `LOCATIONS` | ✅ | — | Comma-separated cities to monitor |
-| `CHECK_INTERVAL_MINUTES` | | `10` | Polling frequency |
-| `MAX_PRICE` | | none | Max rent filter in € |
-| `USE_AUTH` | | `false` | Use saved login cookies |
-| `WEB_PASSWORD` | | — | Password for web UI |
-| `HEROKU_API_KEY` | | — | For pushing cookies to Heroku |
-| `HEROKU_APP_NAME` | | — | Your Heroku app name |
+| Variable | Requis | Défaut | Description |
+|----------|--------|--------|-------------|
+| `TELEGRAM_BOT_TOKEN` | ✅ | — | Token du bot via @BotFather |
+| `TELEGRAM_CHAT_ID` | ✅ | — | Votre ID Telegram |
+| `LOCATIONS` | ✅ | — | Villes à surveiller (séparées par des virgules) |
+| `CHECK_INTERVAL_MINUTES` | | `10` | Fréquence de vérification |
+| `MAX_PRICE` | | aucun | Loyer maximum en € |
+| `USE_AUTH` | | `false` | Utiliser les cookies de connexion |
+| `WEB_PASSWORD` | | — | Mot de passe de l'interface web |
+| `HEROKU_API_KEY` | | — | Pour pousser les cookies sur Heroku |
+| `HEROKU_APP_NAME` | | — | Nom de votre app Heroku |
