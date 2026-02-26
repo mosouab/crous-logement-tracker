@@ -244,7 +244,8 @@
             <label>Locations to monitor</label>
             <div class="city-selector">
               <div class="city-search-bar">
-                <input type="text" id="citySearch" placeholder="🔍 Search or type city + Enter to add…" oninput="filterCities()" onkeydown="handleCityKey(event)" autocomplete="off">
+                <input type="text" id="citySearch" placeholder="🔍 Search available cities…" oninput="filterCities(); updateAddBtn()" onkeydown="handleCityKey(event)" autocomplete="off">
+                <button type="button" id="addCityBtn" class="btn btn-blue btn-sm" onclick="addTypedCity()" style="display:none">+ Add</button>
                 <span id="cityCount" class="city-count"></span>
                 <button type="button" class="btn btn-gray btn-sm" onclick="loadCities()" id="refreshCitiesBtn">↻ Refresh</button>
               </div>
@@ -254,7 +255,7 @@
               <!-- Hidden input carries the final comma-separated value -->
               <input type="hidden" name="LOCATIONS" id="locationsHidden" value="{{ env.get('LOCATIONS','') }}">
             </div>
-            <small>Click cities to toggle. Selected cities are highlighted.</small>
+            <small>Click to toggle available cities. City not listed? Type it above and click <strong>+ Add</strong> or press <strong>Enter</strong>.</small>
           </div>
 
           <div class="form-group">
@@ -354,8 +355,14 @@
 
   function renderCities(cities) {
     const grid = document.getElementById('cityGrid');
-    if (!cities.length) { grid.innerHTML = '<p class="city-loading">No cities found.</p>'; return; }
-    grid.innerHTML = cities.map(c => {
+    // Show pre-selected cities that aren't in the scraped list first
+    const inList = new Set(cities.map(c => c.toUpperCase()));
+    const extraSelected = [..._selectedCities].filter(c => !inList.has(c));
+    const extraChips = extraSelected.map(c =>
+      `<span class="city-chip selected" onclick="toggleCity(this,'${c}')">${c}</span>`
+    ).join('');
+    if (!cities.length && !extraSelected.length) { grid.innerHTML = '<p class="city-loading">No cities found.</p>'; return; }
+    grid.innerHTML = extraChips + cities.map(c => {
       const sel = _selectedCities.has(c.toUpperCase());
       return `<span class="city-chip${sel ? ' selected' : ''}" onclick="toggleCity(this,'${c}')">${c}</span>`;
     }).join('');
@@ -370,29 +377,39 @@
     updateCount();
   }
 
-  function handleCityKey(e) {
-    if (e.key !== 'Enter') return;
-    e.preventDefault();
-    const val = document.getElementById('citySearch').value.trim().toUpperCase();
+  function updateAddBtn() {
+    const val = document.getElementById('citySearch').value.trim();
+    document.getElementById('addCityBtn').style.display = val ? 'inline-flex' : 'none';
+  }
+
+  function addTypedCity() {
+    const input = document.getElementById('citySearch');
+    const val = input.value.trim().toUpperCase();
     if (!val) return;
-    // If chip already exists, toggle it; otherwise create a new one
     const existing = [...document.querySelectorAll('.city-chip')]
       .find(c => c.textContent.toUpperCase() === val);
     if (existing) {
-      toggleCity(existing, existing.textContent);
+      if (!_selectedCities.has(val)) toggleCity(existing, existing.textContent);
     } else {
       const grid = document.getElementById('cityGrid');
       const chip = document.createElement('span');
       chip.className = 'city-chip selected';
       chip.textContent = val;
       chip.onclick = () => toggleCity(chip, val);
-      grid.appendChild(chip);
+      grid.prepend(chip);
       _selectedCities.add(val);
       document.getElementById('locationsHidden').value = [..._selectedCities].join(',');
       updateCount();
     }
-    document.getElementById('citySearch').value = '';
+    input.value = '';
+    document.getElementById('addCityBtn').style.display = 'none';
     filterCities();
+  }
+
+  function handleCityKey(e) {
+    if (e.key !== 'Enter') return;
+    e.preventDefault();
+    addTypedCity();
   }
 
   function filterCities() {

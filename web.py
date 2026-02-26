@@ -247,25 +247,29 @@ def listings_json():
 
 @app.route("/cities")
 def cities_json():
-    """Return city list from cache (populated in background). No auth needed — cities are public."""
-    from state import load_listings
-    import re
-
-    def _city(addr):
-        m = re.search(r'\d{5}\s+(.+)$', addr.strip())
-        return m.group(1).strip() if m else None
+    """Return merged city list: static cities.txt + live scraped cities (cached)."""
+    # Load static city list
+    static_cities: set[str] = set()
+    try:
+        with open("cities.txt", encoding="utf-8") as f:
+            for line in f:
+                c = line.strip()
+                if c:
+                    static_cities.add(c)
+    except FileNotFoundError:
+        pass
 
     with _city_cache_lock:
-        cached = list(_city_cache)
+        live_cities = set(_city_cache)
 
-    if cached:
-        return {"cities": cached}
+    all_cities = sorted(static_cities | live_cities, key=str.upper)
 
-    # Cache not ready yet — trigger background scrape and return quick fallback from state
+    if live_cities:
+        return {"cities": all_cities}
+
+    # Cache not ready yet — trigger background scrape and return static list now
     threading.Thread(target=_refresh_city_cache, daemon=True).start()
-    listings = load_listings()
-    quick = sorted({c for a in listings if (c := _city(a.get("address", "")))})
-    return {"cities": quick, "refreshing": True}
+    return {"cities": sorted(static_cities, key=str.upper), "refreshing": True}
 
 
 # ── .env helpers ─────────────────────────────────────────────────────────────
