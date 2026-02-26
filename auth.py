@@ -13,7 +13,6 @@ Usage:
 
 import json
 import os
-from playwright.sync_api import sync_playwright
 from config import BASE_URL, COOKIES_FILE, HEROKU_API_KEY, HEROKU_APP_NAME
 
 
@@ -48,6 +47,7 @@ def ensure_cookies_file() -> None:
 
 
 def login_and_save_cookies() -> None:
+    from playwright.sync_api import sync_playwright
     print("Opening browser for login — please complete the authentication in the browser window.")
     print("The browser will close automatically once you are logged in.\n")
 
