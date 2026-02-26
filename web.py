@@ -49,6 +49,23 @@ _state = {
 _stop_event = threading.Event()
 _thread: threading.Thread | None = None
 
+# City list cache (populated in background to avoid blocking web requests)
+_city_cache: list[str] = []
+_city_cache_lock = threading.Lock()
+
+
+def _refresh_city_cache() -> None:
+    """Scrape all CROUS cities and cache the result."""
+    global _city_cache
+    try:
+        from scraper import get_all_cities
+        cities = get_all_cities(polite_delay=False)
+        if cities:
+            with _city_cache_lock:
+                _city_cache = cities
+    except Exception as e:
+        print(f"⚠️  City cache refresh failed: {e}")
+
 
 def _log(msg: str) -> None:
     ts = datetime.now().strftime("%H:%M:%S")
@@ -65,6 +82,8 @@ def _auto_start_on_heroku() -> None:
     _stop_event = threading.Event()
     _thread = threading.Thread(target=_polling_loop, args=(CHECK_INTERVAL_MINUTES,), daemon=True)
     _thread.start()
+    # Pre-warm city cache in background
+    threading.Thread(target=_refresh_city_cache, daemon=True).start()
     with _lock:
         _state["running"] = True
     _log(f"▶ Auto-started on Heroku (every {CHECK_INTERVAL_MINUTES} min).")
@@ -227,27 +246,26 @@ def listings_json():
 
 
 @app.route("/cities")
-@_require_auth
 def cities_json():
-    """Return all unique cities from tracked state (fast) or a fresh scrape if empty."""
+    """Return city list from cache (populated in background). No auth needed — cities are public."""
     from state import load_listings
-    listings = load_listings()
     import re
+
     def _city(addr):
         m = re.search(r'\d{5}\s+(.+)$', addr.strip())
         return m.group(1).strip() if m else None
 
-    cities = sorted({c for a in listings if (c := _city(a.get("address", "")))})
+    with _city_cache_lock:
+        cached = list(_city_cache)
 
-    if not cities:
-        # No tracked listings yet — do a live scrape
-        try:
-            from scraper import get_all_cities
-            cities = get_all_cities(polite_delay=False)
-        except Exception as e:
-            return {"cities": [], "error": str(e)}
+    if cached:
+        return {"cities": cached}
 
-    return {"cities": cities}
+    # Cache not ready yet — trigger background scrape and return quick fallback from state
+    threading.Thread(target=_refresh_city_cache, daemon=True).start()
+    listings = load_listings()
+    quick = sorted({c for a in listings if (c := _city(a.get("address", "")))})
+    return {"cities": quick, "refreshing": True}
 
 
 # ── .env helpers ─────────────────────────────────────────────────────────────

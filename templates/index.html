@@ -341,6 +341,13 @@
         btn.disabled = false;
         if (data.error) { grid.innerHTML = `<p style="color:#dc2626">${data.error}</p>`; return; }
         renderCities(data.cities);
+        if (data.refreshing) {
+          const note = document.createElement('p');
+          note.className = 'city-loading';
+          note.style.width = '100%';
+          note.textContent = '⏳ Loading full city list… click ↻ Refresh in ~15s';
+          grid.appendChild(note);
+        }
       })
       .catch(e => { btn.disabled = false; grid.innerHTML = `<p style="color:#dc2626">Error: ${e}</p>`; });
   }
