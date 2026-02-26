@@ -30,12 +30,6 @@ def check_and_notify() -> None:
     known_ids = load_state()
     current_ids = {a["id"] for a in current}
 
-    if not known_ids:
-        # First run — seed state without sending notifications
-        print(f"📋 First run: storing {len(current_ids)} known accommodations (no alerts sent).")
-        save_state(current_ids, current)
-        return
-
     new_accommodations = [a for a in current if a["id"] not in known_ids]
 
     if new_accommodations:
