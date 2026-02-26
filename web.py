@@ -222,36 +222,7 @@ def check_now():
     return redirect(url_for("index"))
 
 
-@app.route("/upload-cookies", methods=["POST"])
-@_require_auth
-def upload_cookies():
-    f = request.files.get("cookies_file")
-    if not f or not f.filename:
-        flash("No file selected.", "warning")
-        return redirect(url_for("index"))
-    try:
-        raw = f.read().decode("utf-8")
-        import json as _json
-        cookies = _json.loads(raw)  # validate JSON
-        if not isinstance(cookies, list):
-            raise ValueError("Expected a JSON array of cookies")
-        # Write to disk
-        from config import COOKIES_FILE
-        with open(COOKIES_FILE, "w", encoding="utf-8") as cf:
-            cf.write(_json.dumps(cookies, indent=2, ensure_ascii=False))
-        # Push to Heroku config var so it survives restarts
-        if os.getenv("DYNO"):
-            threading.Thread(
-                target=_push_heroku_config,
-                args=({"COOKIES_JSON": _json.dumps(cookies, ensure_ascii=False)},),
-                daemon=True,
-            ).start()
-        flash(f"✅ Cookies uploaded ({len(cookies)} cookies). Set USE_AUTH=true if not already.", "success")
-    except Exception as e:
-        flash(f"❌ Invalid cookies file: {e}", "error")
-    return redirect(url_for("index"))
-
-
+@app.route("/settings", methods=["GET", "POST"])
 @_require_auth
 def settings():
     if request.method == "POST":
