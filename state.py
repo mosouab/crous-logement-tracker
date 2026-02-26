@@ -96,7 +96,8 @@ def delete_listing(acc_id: str) -> None:
         _heroku_push(payload)
 
 
-known_ids: set[str], current_accommodations: list[dict] | None = None) -> None:
+def save_state(
+        known_ids: set[str], current_accommodations: list[dict] | None = None) -> None:
     existing = _load_raw()
     if current_accommodations:
         by_id = {a["id"]: a for a in current_accommodations}
