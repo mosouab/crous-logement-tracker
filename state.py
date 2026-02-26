@@ -1,8 +1,12 @@
 import json
 import os
+import time as _time
 import requests as req
 from datetime import datetime
 from config import STATE_FILE, HEROKU_API_KEY, HEROKU_APP_NAME
+
+_last_heroku_push: float = 0.0
+_PUSH_THROTTLE_SECONDS = 3600  # push STATE_JSON to Heroku at most once per hour
 
 
 def _heroku_headers() -> dict:
@@ -33,9 +37,15 @@ def _heroku_pull() -> None:
 
 
 def _heroku_push(payload: str) -> None:
-    """After every save: upload state.json content to Heroku STATE_JSON config var."""
+    """Upload state to Heroku STATE_JSON config var (throttled to once per hour).
+    Note: updating config vars causes a dyno restart, so we throttle aggressively."""
+    global _last_heroku_push
     if not HEROKU_API_KEY or not HEROKU_APP_NAME:
         return
+    now = _time.time()
+    if now - _last_heroku_push < _PUSH_THROTTLE_SECONDS:
+        return  # Skip to avoid triggering a dyno restart too often
+    _last_heroku_push = now
     try:
         req.patch(
             f"https://api.heroku.com/apps/{HEROKU_APP_NAME}/config-vars",
