@@ -152,3 +152,41 @@ def fetch_all_accommodations() -> list[dict]:
 
     filtered = [a for a in all_results if _matches_location(a) and _matches_price(a)]
     return filtered
+
+
+def _extract_city(address: str) -> str | None:
+    """Extract city name from an address string like '47000 AGEN' → 'AGEN'."""
+    m = re.search(r'\d{5}\s+(.+)$', address.strip())
+    return m.group(1).strip() if m else None
+
+
+def get_all_cities() -> list[str]:
+    """Fetch all listing pages and return a sorted list of unique city names."""
+    session = _build_session()
+    cities: set[str] = set()
+
+    resp = session.get(SEARCH_URL, params={"page": 1}, timeout=30)
+    resp.raise_for_status()
+    soup = BeautifulSoup(resp.content, "html.parser", from_encoding="utf-8")
+    total_pages = _get_total_pages(soup)
+
+    for card in soup.select("li.fr-col-lg-4"):
+        addr_tag = card.select_one("p.fr-card__desc")
+        if addr_tag:
+            city = _extract_city(addr_tag.get_text(strip=True))
+            if city:
+                cities.add(city)
+
+    for page in range(2, total_pages + 1):
+        time.sleep(random.uniform(0.3, 1.0))
+        resp = session.get(SEARCH_URL, params={"page": page}, timeout=30)
+        resp.raise_for_status()
+        soup = BeautifulSoup(resp.content, "html.parser", from_encoding="utf-8")
+        for card in soup.select("li.fr-col-lg-4"):
+            addr_tag = card.select_one("p.fr-card__desc")
+            if addr_tag:
+                city = _extract_city(addr_tag.get_text(strip=True))
+                if city:
+                    cities.add(city)
+
+    return sorted(cities)

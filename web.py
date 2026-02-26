@@ -226,6 +226,30 @@ def listings_json():
     return {"listings": load_listings()}
 
 
+@app.route("/cities")
+@_require_auth
+def cities_json():
+    """Return all unique cities from tracked state (fast) or a fresh scrape if empty."""
+    from state import load_listings
+    listings = load_listings()
+    import re
+    def _city(addr):
+        m = re.search(r'\d{5}\s+(.+)$', addr.strip())
+        return m.group(1).strip() if m else None
+
+    cities = sorted({c for a in listings if (c := _city(a.get("address", "")))})
+
+    if not cities:
+        # No tracked listings yet — do a live scrape
+        try:
+            from scraper import get_all_cities
+            cities = get_all_cities()
+        except Exception as e:
+            return {"cities": [], "error": str(e)}
+
+    return {"cities": cities}
+
+
 # ── .env helpers ─────────────────────────────────────────────────────────────
 def _read_env() -> dict[str, str]:
     env: dict[str, str] = {}

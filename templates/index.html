@@ -96,6 +96,37 @@
       font-size: .85rem; color: #1e40af; margin-top: .5rem;
     }
 
+    /* City selector */
+    .city-selector { border: 1.5px solid #d1d5db; border-radius: 8px; overflow: hidden; }
+    .city-search-bar {
+      display: flex; align-items: center; gap: .5rem;
+      padding: .5rem .75rem; background: #f9fafb;
+      border-bottom: 1px solid #e5e7eb;
+    }
+    .city-search-bar input {
+      flex: 1; border: none; background: transparent;
+      font-size: .9rem; outline: none; padding: 0;
+    }
+    .city-count { font-size: .78rem; color: #9ca3af; white-space: nowrap; }
+    .btn-sm { padding: .25rem .6rem; font-size: .78rem; border-radius: 6px; }
+    .city-grid {
+      display: flex; flex-wrap: wrap; gap: .4rem;
+      padding: .75rem; max-height: 220px; overflow-y: auto;
+      background: #fff;
+    }
+    .city-chip {
+      padding: .3rem .7rem; border-radius: 999px; font-size: .8rem;
+      border: 1.5px solid #d1d5db; background: #f9fafb; cursor: pointer;
+      transition: all .12s; user-select: none; white-space: nowrap;
+    }
+    .city-chip:hover { border-color: #003189; color: #003189; }
+    .city-chip.selected { background: #003189; color: #fff; border-color: #003189; }
+    .city-chip.hidden { display: none; }
+    .city-loading { color: #9ca3af; font-size: .85rem; padding: .25rem; }
+    .spinner { display: inline-block; width: 12px; height: 12px; border: 2px solid #d1d5db;
+      border-top-color: #003189; border-radius: 50%; animation: spin .6s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
     /* Two-column layout for main content */
     .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; }
     @media (max-width: 800px) { .grid-2 { grid-template-columns: 1fr; } }
@@ -211,10 +242,19 @@
 
           <div class="form-group form-full">
             <label>Locations to monitor</label>
-            <input type="text" name="LOCATIONS"
-                   value="{{ env.get('LOCATIONS','') }}"
-                   placeholder="Evry,Paris,Orsay,Gif-sur-Yvette">
-            <small>Comma-separated city names, matched against listing addresses</small>
+            <div class="city-selector">
+              <div class="city-search-bar">
+                <input type="text" id="citySearch" placeholder="🔍 Search cities…" oninput="filterCities()" autocomplete="off">
+                <span id="cityCount" class="city-count"></span>
+                <button type="button" class="btn btn-gray btn-sm" onclick="loadCities()" id="refreshCitiesBtn">↻ Refresh</button>
+              </div>
+              <div id="cityGrid" class="city-grid">
+                <p class="city-loading">Loading cities… <span class="spinner"></span></p>
+              </div>
+              <!-- Hidden input carries the final comma-separated value -->
+              <input type="hidden" name="LOCATIONS" id="locationsHidden" value="{{ env.get('LOCATIONS','') }}">
+            </div>
+            <small>Click cities to toggle. Selected cities are highlighted.</small>
           </div>
 
           <div class="form-group">
@@ -285,7 +325,59 @@
       });
   }, 10000);
 
-  let listingsLoaded = false;
+  // ── City selector ────────────────────────────────────────────────────────
+  let _selectedCities = new Set(
+    '{{ env.get("LOCATIONS","") }}'.split(',').map(s => s.trim().toUpperCase()).filter(Boolean)
+  );
+
+  function loadCities() {
+    const grid = document.getElementById('cityGrid');
+    const btn  = document.getElementById('refreshCitiesBtn');
+    grid.innerHTML = '<p class="city-loading">Loading cities… <span class="spinner"></span></p>';
+    btn.disabled = true;
+    fetch('/cities')
+      .then(r => r.json())
+      .then(data => {
+        btn.disabled = false;
+        if (data.error) { grid.innerHTML = `<p style="color:#dc2626">${data.error}</p>`; return; }
+        renderCities(data.cities);
+      })
+      .catch(e => { btn.disabled = false; grid.innerHTML = `<p style="color:#dc2626">Error: ${e}</p>`; });
+  }
+
+  function renderCities(cities) {
+    const grid = document.getElementById('cityGrid');
+    if (!cities.length) { grid.innerHTML = '<p class="city-loading">No cities found.</p>'; return; }
+    grid.innerHTML = cities.map(c => {
+      const sel = _selectedCities.has(c.toUpperCase());
+      return `<span class="city-chip${sel ? ' selected' : ''}" onclick="toggleCity(this,'${c}')">${c}</span>`;
+    }).join('');
+    updateCount();
+  }
+
+  function toggleCity(el, city) {
+    const key = city.toUpperCase();
+    if (_selectedCities.has(key)) { _selectedCities.delete(key); el.classList.remove('selected'); }
+    else                          { _selectedCities.add(key);    el.classList.add('selected'); }
+    document.getElementById('locationsHidden').value = [..._selectedCities].join(',');
+    updateCount();
+  }
+
+  function filterCities() {
+    const q = document.getElementById('citySearch').value.toUpperCase();
+    document.querySelectorAll('.city-chip').forEach(chip => {
+      chip.classList.toggle('hidden', q && !chip.textContent.toUpperCase().includes(q));
+    });
+  }
+
+  function updateCount() {
+    const total = document.querySelectorAll('.city-chip').length;
+    const sel   = _selectedCities.size;
+    document.getElementById('cityCount').textContent = sel ? `${sel} selected` : `${total} cities`;
+  }
+
+  // Load cities on page load
+  loadCities();
 
   function toggleListings() {
     const panel = document.getElementById('listingsPanel');
