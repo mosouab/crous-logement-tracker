@@ -5,7 +5,7 @@ import requests as req
 from datetime import datetime
 from config import STATE_FILE, HEROKU_API_KEY, HEROKU_APP_NAME
 
-_last_heroku_push: float = 0.0
+_last_heroku_push: float = _time.time()  # skip push on first startup
 _PUSH_THROTTLE_SECONDS = 3600  # push STATE_JSON to Heroku at most once per hour
 
 
