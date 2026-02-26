@@ -245,6 +245,14 @@ def listings_json():
     return {"listings": load_listings()}
 
 
+@app.route("/listing/<acc_id>/delete", methods=["POST"])
+@_require_auth
+def delete_listing(acc_id: str):
+    from state import delete_listing as state_delete
+    state_delete(acc_id)
+    return {"ok": True}
+
+
 @app.route("/cities")
 def cities_json():
     """Return merged city list: static cities.txt + live scraped cities (cached)."""

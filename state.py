@@ -85,7 +85,18 @@ def load_listings() -> list[dict]:
     return listings
 
 
-def save_state(known_ids: set[str], current_accommodations: list[dict] | None = None) -> None:
+def delete_listing(acc_id: str) -> None:
+    """Remove a single listing from tracked state."""
+    existing = _load_raw()
+    if acc_id in existing:
+        del existing[acc_id]
+        payload = json.dumps(existing, indent=2, ensure_ascii=False)
+        with open(STATE_FILE, "w", encoding="utf-8") as f:
+            f.write(payload)
+        _heroku_push(payload)
+
+
+known_ids: set[str], current_accommodations: list[dict] | None = None) -> None:
     existing = _load_raw()
     if current_accommodations:
         by_id = {a["id"]: a for a in current_accommodations}

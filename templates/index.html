@@ -152,6 +152,15 @@
     .listing-addr { font-size: .78rem; color: #6b7280; }
     .listing-price { font-size: .85rem; font-weight: 600; color: #003189; margin-top: auto; padding-top: .4rem; }
     .listing-date { font-size: .72rem; color: #9ca3af; }
+    .listing-delete {
+      position: absolute; top: .4rem; right: .4rem;
+      background: rgba(220,38,38,.85); color: #fff; border: none;
+      border-radius: 50%; width: 22px; height: 22px; font-size: .75rem;
+      cursor: pointer; display: flex; align-items: center; justify-content: center;
+      opacity: 0; transition: opacity .15s; line-height: 1;
+    }
+    .listing-card { position: relative; }
+    .listing-card:hover .listing-delete { opacity: 1; }
   </style>
 </head>
 <body>
@@ -428,6 +437,8 @@
   // Load cities on page load
   loadCities();
 
+  let listingsLoaded = false;
+
   function toggleListings() {
     const panel = document.getElementById('listingsPanel');
     const btn   = document.getElementById('toggleBtn');
@@ -448,20 +459,35 @@
           return;
         }
         grid.innerHTML = data.listings.map(a => `
-          <a class="listing-card" href="${a.url || '#'}" target="_blank" rel="noreferrer">
-            <div class="listing-img">
-              ${a.image_url
-                ? `<img src="${a.image_url}" alt="${a.name || ''}" loading="lazy" onerror="this.parentElement.innerHTML='<div class=no-img>No image</div>'">`
-                : '<div class="no-img">No image</div>'}
-            </div>
-            <div class="listing-body">
-              <div class="listing-name">${a.name || 'Unknown'}</div>
-              <div class="listing-addr">${a.address || ''}</div>
-              <div class="listing-price">${a.price || ''}</div>
-              ${a.first_seen ? `<div class="listing-date">Tracked since ${a.first_seen.slice(0,10)}</div>` : ''}
-            </div>
-          </a>`).join('');
+          <div class="listing-card">
+            <a href="${a.url || '#'}" target="_blank" rel="noreferrer" style="text-decoration:none;color:inherit;display:contents">
+              <div class="listing-img">
+                ${a.image_url
+                  ? `<img src="${a.image_url}" alt="${a.name || ''}" loading="lazy" onerror="this.parentElement.innerHTML='<div class=no-img>No image</div>'">`
+                  : '<div class="no-img">No image</div>'}
+              </div>
+              <div class="listing-body">
+                <div class="listing-name">${a.name || 'Unknown'}</div>
+                <div class="listing-addr">${a.address || ''}</div>
+                <div class="listing-price">${a.price || ''}</div>
+                ${a.first_seen ? `<div class="listing-date">Tracked since ${a.first_seen.slice(0,10)}</div>` : ''}
+              </div>
+            </a>
+            <button class="listing-delete" onclick="deleteListing('${a.id}', this)" title="Remove from tracked">✕</button>
+          </div>`).join('');
+      })
+      .catch(e => {
+        document.getElementById('listingsGrid').innerHTML = `<p style="color:#dc2626;padding:1rem;">Error loading listings: ${e}</p>`;
       });
+  }
+
+  function deleteListing(id, btn) {
+    if (!confirm('Remove this listing from tracked? It will be re-added on the next check if still available.')) return;
+    btn.disabled = true;
+    fetch(`/listing/${id}/delete`, {method: 'POST'})
+      .then(r => r.json())
+      .then(() => { listingsLoaded = false; loadListings(); })
+      .catch(() => { btn.disabled = false; alert('Delete failed.'); });
   }
 </script>
 
