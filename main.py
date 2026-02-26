@@ -39,12 +39,19 @@ def main() -> None:
         return
 
     if args.web:
-        from web import app
         from config import PORT
-        host = "0.0.0.0" if os.getenv("PORT") else "127.0.0.1"
-        print(f"🌐 Web interface running at http://{host}:{PORT}")
-        print("Press Ctrl+C to stop.\n")
-        app.run(host=host, port=PORT, debug=False)
+        if os.getenv("DYNO"):
+            # On Heroku: gunicorn handles HTTP; background thread auto-starts inside web.py
+            import subprocess, sys
+            print(f"🌐 Starting gunicorn on port {PORT}")
+            subprocess.run([sys.executable, "-m", "gunicorn", "web:app",
+                            "--bind", f"0.0.0.0:{PORT}",
+                            "--workers", "1", "--threads", "4", "--timeout", "120"])
+        else:
+            from web import app
+            print(f"🌐 Web interface running at http://localhost:{PORT}")
+            print("Press Ctrl+C to stop.\n")
+            app.run(host="127.0.0.1", port=PORT, debug=False)
         return
 
     mode = "logged-in" if USE_AUTH else "anonymous"

@@ -56,6 +56,20 @@ def _log(msg: str) -> None:
         _logs.appendleft(f"[{ts}] {msg}")
 
 
+def _auto_start_on_heroku() -> None:
+    """When deployed on Heroku (DYNO env var set), start the notifier automatically."""
+    if not os.getenv("DYNO"):
+        return
+    global _thread, _stop_event
+    from config import CHECK_INTERVAL_MINUTES
+    _stop_event = threading.Event()
+    _thread = threading.Thread(target=_polling_loop, args=(CHECK_INTERVAL_MINUTES,), daemon=True)
+    _thread.start()
+    with _lock:
+        _state["running"] = True
+    _log(f"▶ Auto-started on Heroku (every {CHECK_INTERVAL_MINUTES} min).")
+
+
 # ── Patched notifier that writes to our log ─────────────────────────────────
 def _run_check() -> None:
     import scraper as sc
@@ -254,3 +268,7 @@ def _write_env(values: dict[str, str]) -> None:
 
     with open(".env", "w", encoding="utf-8") as f:
         f.write("\n".join(lines) + "\n")
+
+
+# Auto-start when imported by gunicorn on Heroku
+_auto_start_on_heroku()

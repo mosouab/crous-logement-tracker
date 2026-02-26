@@ -10,9 +10,10 @@ RUN pip install --no-cache-dir \
     python-dotenv \
     python-telegram-bot \
     schedule \
-    flask
+    flask \
+    gunicorn
 
 COPY . .
 
 # Heroku sets PORT at runtime
-CMD ["python", "main.py", "--web"]
+CMD python main.py --web
