@@ -7,6 +7,7 @@ from config import STATE_FILE, HEROKU_API_KEY, HEROKU_APP_NAME
 
 _last_heroku_push: float = _time.time()  # skip push on first startup
 _PUSH_THROTTLE_SECONDS = 3600  # push STATE_JSON to Heroku at most once per hour
+_pulled: bool = False  # guard so _heroku_pull only runs once
 
 
 def _heroku_headers() -> dict:
@@ -19,6 +20,10 @@ def _heroku_headers() -> dict:
 
 def _heroku_pull() -> None:
     """On startup: download STATE_JSON config var → state.json (only if missing)."""
+    global _pulled
+    if _pulled:
+        return
+    _pulled = True
     if not HEROKU_API_KEY or not HEROKU_APP_NAME or os.path.exists(STATE_FILE):
         return
     try:
@@ -57,11 +62,8 @@ def _heroku_push(payload: str) -> None:
         print(f"⚠️  Could not push state to Heroku: {e}")
 
 
-# Pull from Heroku on first import (no-op when running locally)
-_heroku_pull()
-
-
 def _load_raw() -> dict:
+    _heroku_pull()  # no-op after first call; restores state.json from Heroku on fresh dyno
     try:
         with open(STATE_FILE, encoding="utf-8") as f:
             data = json.load(f)
