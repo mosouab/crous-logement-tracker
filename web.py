@@ -124,11 +124,6 @@ def _run_check() -> None:
         _state["last_check"] = datetime.now()
         _state["listing_count"] = len(current_ids)
 
-    if not known_ids:
-        _log(f"📋 First run: storing {len(current_ids)} listings (no alerts sent).")
-        save_state(current_ids, current)
-        return
-
     new_items = [a for a in current if a["id"] not in known_ids]
     if new_items:
         _log(f"🆕 {len(new_items)} new listing(s) found!")
