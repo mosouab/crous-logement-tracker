@@ -235,7 +235,10 @@ def settings():
             "USE_AUTH": request.form.get("USE_AUTH", "false"),
         }
         _write_env(new_env)
-        flash("Settings saved. Restart the notifier to apply changes.", "success")
+        if os.getenv("DYNO"):
+            flash("Settings saved — the app will restart automatically in a few seconds.", "success")
+        else:
+            flash("Settings saved. Restart the notifier to apply changes.", "success")
         return redirect(url_for("index"))
     return redirect(url_for("index"))
 
