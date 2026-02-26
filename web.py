@@ -87,6 +87,15 @@ def _auto_start_on_heroku() -> None:
     with _lock:
         _state["running"] = True
     _log(f"▶ Auto-started on Heroku (every {CHECK_INTERVAL_MINUTES} min).")
+    # Start Telegram status bot
+    try:
+        from telegram_bot import start_status_bot
+        def _get_state():
+            with _lock:
+                return dict(_state)
+        threading.Thread(target=start_status_bot, args=(_get_state,), daemon=True).start()
+    except Exception as e:
+        _log(f"⚠️ Telegram status bot failed to start: {e}")
 
 
 # ── Patched notifier that writes to our log ─────────────────────────────────
