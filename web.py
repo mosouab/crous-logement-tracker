@@ -91,8 +91,12 @@ def _auto_start_on_heroku() -> None:
     try:
         from telegram_bot import start_status_bot
         def _get_state():
+            from config import USE_AUTH
             with _lock:
-                return dict(_state)
+                s = dict(_state)
+                s["logs"] = list(_logs)[:4]
+                s["use_auth"] = USE_AUTH
+            return s
         threading.Thread(target=start_status_bot, args=(_get_state,), daemon=True).start()
     except Exception as e:
         _log(f"⚠️ Telegram status bot failed to start: {e}")

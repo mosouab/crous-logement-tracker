@@ -35,6 +35,8 @@ def _build_status_message(state: dict) -> str:
     last_check = state.get("last_check")
     listing_count = state.get("listing_count", 0)
     new_since = state.get("new_since_start", 0)
+    use_auth = state.get("use_auth", False)
+    logs = state.get("logs", [])
 
     try:
         tracked = len(load_listings())
@@ -43,17 +45,25 @@ def _build_status_message(state: dict) -> str:
 
     last_str = last_check.strftime("%H:%M:%S") if last_check else "Never"
     locs = ", ".join(LOCATIONS) if LOCATIONS else "All cities"
-
+    auth_str = "🔐 Logged-in" if use_auth else "👤 Anonymous"
     status_icon = "▶️" if running else "⏸"
-    return (
+
+    msg = (
         f"🤖 <b>CROUS Notifier Status</b>\n\n"
         f"{status_icon} <b>Running:</b> {'Yes' if running else 'No'}\n"
         f"🔍 <b>Last check:</b> {last_str}\n"
         f"⏱ <b>Interval:</b> every {CHECK_INTERVAL_MINUTES} min\n"
         f"📋 <b>Tracked listings:</b> {tracked}\n"
         f"🆕 <b>New since start:</b> {new_since}\n"
-        f"📍 <b>Locations:</b> {locs}"
+        f"📍 <b>Locations:</b> {locs}\n"
+        f"{auth_str}"
     )
+
+    if logs:
+        log_lines = "\n".join(f"  {l}" for l in logs)
+        msg += f"\n\n📜 <b>Recent logs:</b>\n<code>{log_lines}</code>"
+
+    return msg
 
 
 def start_status_bot(state_getter) -> None:
