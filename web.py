@@ -342,9 +342,11 @@ def _write_env(values: dict[str, str]) -> None:
     with open(".env", "w", encoding="utf-8") as f:
         f.write("\n".join(lines) + "\n")
 
-    # On Heroku, also persist to config vars (ephemeral filesystem loses .env)
+    # On Heroku, also persist to config vars in a background thread
+    # (the PATCH triggers a dyno restart; running it async lets the response
+    # complete before the restart kills the current worker)
     if os.getenv("DYNO"):
-        _push_heroku_config(values)
+        threading.Thread(target=_push_heroku_config, args=(values,), daemon=True).start()
 
 
 def _push_heroku_config(values: dict[str, str]) -> None:

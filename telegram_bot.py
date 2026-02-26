@@ -1,8 +1,5 @@
 import asyncio
-import threading
 import telegram
-from telegram import Update
-from telegram.ext import Application, MessageHandler, filters
 from config import TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID
 
 
@@ -60,25 +57,45 @@ def _build_status_message(state: dict) -> str:
 
 
 def start_status_bot(state_getter) -> None:
-    """Run Telegram bot polling in the calling thread (designed for a daemon thread)."""
-    async def _handle(update: Update, context) -> None:
-        # Only respond to the configured chat
-        if str(update.effective_chat.id) != str(TELEGRAM_CHAT_ID):
-            return
+    """Poll Telegram for messages and reply with status. Uses plain HTTP — no asyncio."""
+    import requests as req
+    import time as _t
+
+    url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}"
+    offset = 0
+
+    # Skip updates that arrived before we started (drop_pending)
+    try:
+        r = req.get(f"{url}/getUpdates", params={"offset": -1}, timeout=10)
+        updates = r.json().get("result", [])
+        if updates:
+            offset = updates[-1]["update_id"] + 1
+    except Exception:
+        pass
+
+    while True:
         try:
-            msg = _build_status_message(state_getter())
-        except Exception as e:
-            msg = f"⚠️ Could not retrieve status: {e}"
-        await update.message.reply_text(msg, parse_mode="HTML")
-
-    async def _run() -> None:
-        app = Application.builder().token(TELEGRAM_BOT_TOKEN).build()
-        app.add_handler(MessageHandler(filters.ALL, _handle))
-        await app.initialize()
-        await app.start()
-        await app.updater.start_polling(drop_pending_updates=True)
-        # keep running until the thread is killed (daemon)
-        stop = asyncio.Event()
-        await stop.wait()
-
-    asyncio.run(_run())
+            r = req.get(
+                f"{url}/getUpdates",
+                params={"offset": offset, "timeout": 30, "allowed_updates": ["message"]},
+                timeout=35,
+            )
+            r.raise_for_status()
+            for upd in r.json().get("result", []):
+                offset = upd["update_id"] + 1
+                msg = upd.get("message")
+                if not msg:
+                    continue
+                if str(msg.get("chat", {}).get("id", "")) != str(TELEGRAM_CHAT_ID):
+                    continue
+                try:
+                    status = _build_status_message(state_getter())
+                except Exception as e:
+                    status = f"⚠️ Could not retrieve status: {e}"
+                req.post(f"{url}/sendMessage", json={
+                    "chat_id": TELEGRAM_CHAT_ID,
+                    "text": status,
+                    "parse_mode": "HTML",
+                }, timeout=10)
+        except Exception:
+            _t.sleep(5)
