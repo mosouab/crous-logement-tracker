@@ -95,6 +95,7 @@ def _auto_start_on_heroku() -> None:
             with _lock:
                 s = dict(_state)
                 s["logs"] = list(_logs)[:4]
+                s["logs_all"] = list(_logs)
                 s["use_auth"] = USE_AUTH
             return s
         threading.Thread(target=start_status_bot, args=(_get_state,), daemon=True).start()

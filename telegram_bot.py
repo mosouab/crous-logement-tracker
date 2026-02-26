@@ -98,14 +98,43 @@ def start_status_bot(state_getter) -> None:
                     continue
                 if str(msg.get("chat", {}).get("id", "")) != str(TELEGRAM_CHAT_ID):
                     continue
-                try:
-                    status = _build_status_message(state_getter())
-                except Exception as e:
-                    status = f"⚠️ Could not retrieve status: {e}"
-                req.post(f"{url}/sendMessage", json={
-                    "chat_id": TELEGRAM_CHAT_ID,
-                    "text": status,
-                    "parse_mode": "HTML",
-                }, timeout=10)
+                text = (msg.get("text") or "").strip()
+                if text.lower() == "logs":
+                    try:
+                        state = state_getter()
+                        all_logs = state.get("logs_all") or state.get("logs", [])
+                        if not all_logs:
+                            replies = ["📜 No logs yet."]
+                        else:
+                            # Split into ≤4000-char chunks to stay within Telegram limit
+                            lines = all_logs
+                            chunks, current = [], []
+                            size = 0
+                            for line in lines:
+                                if size + len(line) + 1 > 3800:
+                                    chunks.append(current)
+                                    current, size = [line], len(line)
+                                else:
+                                    current.append(line)
+                                    size += len(line) + 1
+                            if current:
+                                chunks.append(current)
+                            replies = [
+                                f"📜 <b>Logs ({i+1}/{len(chunks)}):</b>\n<code>" + "\n".join(c) + "</code>"
+                                for i, c in enumerate(chunks)
+                            ]
+                    except Exception as e:
+                        replies = [f"⚠️ Could not retrieve logs: {e}"]
+                else:
+                    try:
+                        replies = [_build_status_message(state_getter())]
+                    except Exception as e:
+                        replies = [f"⚠️ Could not retrieve status: {e}"]
+                for reply in replies:
+                    req.post(f"{url}/sendMessage", json={
+                        "chat_id": TELEGRAM_CHAT_ID,
+                        "text": reply,
+                        "parse_mode": "HTML",
+                    }, timeout=10)
         except Exception:
             _t.sleep(5)
