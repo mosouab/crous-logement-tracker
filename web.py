@@ -13,6 +13,7 @@ import time
 import schedule as sched
 from collections import deque
 from datetime import datetime
+from zoneinfo import ZoneInfo
 from flask import Flask, render_template, request, redirect, url_for, flash, Response
 from functools import wraps
 
@@ -68,7 +69,7 @@ def _refresh_city_cache() -> None:
 
 
 def _log(msg: str) -> None:
-    ts = datetime.now().strftime("%H:%M:%S")
+    ts = datetime.now(ZoneInfo("Europe/Paris")).strftime("%H:%M:%S")
     with _lock:
         _logs.appendleft(f"[{ts}] {msg}")
 
@@ -121,7 +122,7 @@ def _run_check() -> None:
     current_ids = {a["id"] for a in current}
 
     with _lock:
-        _state["last_check"] = datetime.now()
+        _state["last_check"] = datetime.now(ZoneInfo("Europe/Paris"))
         _state["listing_count"] = len(current_ids)
 
     new_items = [a for a in current if a["id"] not in known_ids]
